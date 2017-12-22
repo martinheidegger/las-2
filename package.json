@@ -1,0 +1,19 @@
+{
+  "name": "lasx",
+  "version": "1.0.0",
+  "description": "Alternative las proessor",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Martin Heidegger",
+  "license": "MIT",
+  "devDependencies": {
+    "standard": "^10.0.3"
+  },
+  "dependencies": {
+    "pretty-hrtime": "^1.0.3"
+  }
+}

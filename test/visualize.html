@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-limit=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Performance visualizer</title>
+  <style>
+
+      body {
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 12px;
+      }
+
+      .area {
+        fill: lightsteelblue;
+      }
+      .axis line, .axis path {
+        stroke: grey;
+      }
+      
+      .line {
+        fill: none;
+        stroke-width: 1.5px;
+      }
+
+      .line--cpuuser-min {
+        stroke: hsl(0, 80%, 80%)
+      }
+      .legendQuant--cpuuser g:nth-child(1) rect {
+        fill: hsl(0, 80%, 80%)
+      }
+      .line--cpuuser-avg {
+        stroke: hsl(0, 80%, 65%)
+      }
+      .legendQuant--cpuuser g:nth-child(2) rect {
+        fill: hsl(0, 80%, 65%)
+      }
+      .line--cpuuser-max {
+        stroke: hsl(0, 80%, 50%)
+      }
+      .legendQuant--cpuuser g:nth-child(3) rect {
+        fill: hsl(0, 80%, 50%)
+      }
+      .line--cpusystem-min {
+        stroke: hsl(72, 80%, 80%)
+      }
+      .legendQuant--cpusystem g:nth-child(1) rect {
+        fill: hsl(72, 80%, 80%)
+      }
+      .line--cpusystem-avg {
+        stroke: hsl(72, 80%, 65%)
+      }
+      .legendQuant--cpusystem g:nth-child(2) rect {
+        fill: hsl(72, 80%, 65%)
+      }
+      .line--cpusystem-max {
+        stroke: hsl(72, 80%, 50%)
+      }
+      .legendQuant--cpusystem g:nth-child(3) rect {
+        fill: hsl(72, 80%, 50%)
+      }
+      .line--memheapTotal-min {
+        stroke: hsl(144, 80%, 80%)
+      }
+      .legendQuant--memheapTotal g:nth-child(1) rect {
+        fill: hsl(144, 80%, 80%)
+      }
+      .line--memheapTotal-avg {
+        stroke: hsl(144, 80%, 65%)
+      }
+      .legendQuant--memheapTotal g:nth-child(2) rect {
+        fill: hsl(144, 80%, 65%)
+      }
+      .line--memheapTotal-max {
+        stroke: hsl(144, 80%, 50%)
+      }
+      .legendQuant--memheapTotal g:nth-child(3) rect {
+        fill: hsl(144, 80%, 50%)
+      }
+      .line--memheapUsed-min {
+        stroke: hsl(216, 80%, 80%)
+      }
+      .legendQuant--memheapUsed g:nth-child(1) rect {
+        fill: hsl(216, 80%, 80%)
+      }
+      .line--memheapUsed-avg {
+        stroke: hsl(216, 80%, 65%)
+      }
+      .legendQuant--memheapUsed g:nth-child(2) rect {
+        fill: hsl(216, 80%, 65%)
+      }
+      .line--memheapUsed-max {
+        stroke: hsl(216, 80%, 50%)
+      }
+      .legendQuant--memheapUsed g:nth-child(3) rect {
+        fill: hsl(216, 80%, 50%)
+      }
+      .line--memexternal-min {
+        stroke: hsl(288, 80%, 80%)
+      }
+      .legendQuant--memexternal g:nth-child(1) rect {
+        fill: hsl(288, 80%, 80%)
+      }
+      .line--memexternal-avg {
+        stroke: hsl(288, 80%, 65%)
+      }
+      .legendQuant--memexternal g:nth-child(2) rect {
+        fill: hsl(288, 80%, 65%)
+      }
+      .line--memexternal-max {
+        stroke: hsl(288, 80%, 50%)
+      }
+      .legendQuant--memexternal g:nth-child(3) rect {
+        fill: hsl(288, 80%, 50%)
+      }
+      
+      .dot {
+        fill: white;
+        stroke: steelblue;
+        stroke-width: 1.5px;
+      }
+      
+      </style>
+</head>
+<body>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.3/d3-legend.min.js"></script>
+  <script type="text/javascript">
+// https://stackoverflow.com/questions/46595354/setting-up-d3-axis-with-kib-mib-gib-units-from-values-in-bytes
+function fileSize (bytes) {
+  var thresh = 1024
+  if (Math.abs(bytes) < thresh) {
+    return bytes + ' B'
+  }
+  var units = ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
+  var u = -1
+  do {
+    bytes /= thresh
+    ++u
+  } while (Math.abs(bytes) >= thresh && u < units.length - 1)
+  return bytes.toFixed(1) + ' ' + units[u]
+}
+function cycles (num) {
+  return `${num | 0} cycles`
+}
+
+d3.csv('https://gist.githubusercontent.com/martinheidegger/8180022bd69a254f273bab76856dbb33/raw/eb0d9711a9b45f31e5207cb776f1c99210b7fe2a/example_output.csv', (data) => {
+  const limits = data.reduce((limits, entry) => {
+    for (const key in entry) {
+      let value = Number(entry[key])
+      entry[key] = value
+      let limit = limits[key]
+      if (limit === undefined) {
+        limit = {min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY}
+        limits[key] = limit
+      }
+      if (limit.min > value) {
+        limit.min = Math.floor(value)
+      }
+      if (limit.max < value) {
+        limit.max = Math.ceil(value)
+      }
+    }
+    return limits
+  }, {})
+
+  const graphWidth = 400
+  const graphHeight = 300
+
+  const margin = {top: 10, right: 0, bottom: 20, left: 80}
+
+  const xDomain = [0, (limits.time.max - limits.time.min) / 1000]
+  const xRange = [0, graphWidth]
+  const yRange = [0, graphHeight]
+
+  ;[
+    { prop: 'cpu[user]', format: cycles},
+    { prop: 'cpu[system]', format: cycles},
+    { prop: 'mem[heapTotal]', format: fileSize},
+    { prop: 'mem[heapUsed]', format: fileSize},
+    { prop: 'mem[external]', format: fileSize}
+  ].forEach(({prop, format}, i) => {
+    const category = i + 3
+    const width = 500
+    const height = 300
+
+    var svg = d3.select('body').append('svg')
+      .datum(data)
+      .attr('width', width + margin.left + margin.right)
+      .attr('height', height + margin.top + margin.bottom)
+      .attr('title', prop)
+      .append('g')
+      .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')')
+
+
+    var y = d3.scaleLinear(data.length)
+      .domain([limits[`${prop}#max`].max, limits[`${prop}#min`].min])
+      .range(yRange)
+
+    var x = d3.scaleLinear()
+      .domain(xDomain)
+      .range(xRange)
+    
+    svg.append('g')
+      .attr('class', 'axis axis--x')
+      .attr('transform', 'translate(0,' + graphHeight + ')')
+      .call(d3.axisBottom(x).tickFormat(d => `${d}s`))
+
+    svg.append('g')
+      .attr('class', 'axis axis--y')
+      .call(d3.axisLeft(y).tickFormat(format))
+    
+    const parts = [
+      'min',
+      'avg',
+      'max'
+    ]
+
+    var colorLegend = d3.legendColor()
+        .labels(parts)
+        .title(prop)
+        .cells(parts.length)
+        .useClass(true);
+    
+    parts.forEach((part) => {
+      var line = d3.line()
+        .defined(function (d) { return data; })
+        .x(d => x((d.time - limits.time.min) / 1000))
+        .y(d => {
+          // console.log(prop, part, d[`${prop}#${part}`], limits[`${prop}#min`].min, limits[`${prop}#max`].max)
+          return y(Math.round(d[`${prop}#${part}`]))
+        })
+      svg.append('path')
+        .attr('class', `line line--${prop.replace(/[\[\]]/ig, '')}-${part}`)
+        .attr('d', line)
+    })
+
+    svg.append("g")
+      .attr("class", `legendQuant legendQuant--${prop.replace(/[\[\]]/ig, '')}`)
+      .attr("transform", "translate(20,20)")
+      .call(colorLegend)
+  })
+})
+
+  </script>
+</body>
+</html>

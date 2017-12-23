@@ -180,8 +180,7 @@ module.exports = {
   receiveBufferForFormat: (format) => {
     let current = format
     let currentSize
-    let currentBuffer
-    let currentBufferArr
+    let bufferStore
     let requiredSize
     let previousOffset = 0
 
@@ -198,14 +197,15 @@ module.exports = {
     const receiveBuffer = (buffer) => {
       requiredSize -= buffer.length
       if (requiredSize <= 0) {
-        if (currentBufferArr) {
-          currentBuffer = Buffer.concat(currentBufferArr)
-        } else if (currentBuffer) {
-          currentBuffer = Buffer.concat([currentBuffer, buffer])
+        let targetBuffer
+        if (bufferStore !== undefined) {
+          bufferStore.push(buffer)
+          targetBuffer = Buffer.concat(bufferStore)
+          bufferStore = undefined
         } else {
-          currentBuffer = buffer
+          targetBuffer = buffer
         }
-        current = current.parse(currentBuffer)
+        current = current.parse(targetBuffer)
         previousOffset += currentSize
         // It is eigther a function or a parser object, if its a function
         // turn it into a parser: problem is in './parser#iter'
@@ -214,8 +214,6 @@ module.exports = {
         }
         const leftOver = requiredSize
         setRequiredSize()
-        currentBufferArr = undefined
-        currentBuffer = undefined
         if (leftOver !== 0) {
           return buffer.slice(buffer.length + leftOver)
         }
@@ -224,18 +222,16 @@ module.exports = {
       if (current.skip) {
         return
       }
-      if (currentBufferArr !== undefined) {
-        currentBufferArr.push(buffer)
-      } else if (currentBuffer !== undefined) {
-        currentBufferArr = [currentBuffer, buffer]
+      if (bufferStore === undefined) {
+        bufferStore = [buffer]
       } else {
-        currentBuffer = buffer
+        bufferStore.push(buffer)
       }
     }
     return (buffer) => {
-      do {
+      while (buffer !== undefined) {
         buffer = receiveBuffer(buffer)
-      } while (buffer)
+      }
     }
   }
 }

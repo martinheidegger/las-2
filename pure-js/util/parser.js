@@ -17,7 +17,7 @@ const repeat = (type, amount) => {
     }
   }
 }
-const uLong = { size: 4, parse: (buffer, start) => buffer.readUInt32LE(start) }
+const uLong = { size: 4, parse: (buffer, start) => buffer.readUInt32LE(start, true) }
 const noop = {
   skip: true,
   size: Number.POSITIVE_INFINITY,
@@ -26,12 +26,12 @@ const noop = {
 module.exports = {
   str,
   repeat,
-  short: { size: 2, parse: (buffer, start) => buffer.readInt16LE(start) },
-  uShort: { size: 2, parse: (buffer, start) => buffer.readUInt16LE(start) },
-  long: { size: 4, parse: (buffer, start) => buffer.readInt32LE(start) },
+  short: { size: 2, parse: (buffer, start) => buffer.readInt16LE(start, true) },
+  uShort: { size: 2, parse: (buffer, start) => buffer.readUInt16LE(start, true) },
+  long: { size: 4, parse: (buffer, start) => buffer.readInt32LE(start, true) },
   uLong,
-  double: { size: 8, parse: (buffer, start) => buffer.readDoubleLE(start) },
-  uChar: { size: 1, parse: (buffer, start) => buffer.readInt8(start) },
+  double: { size: 8, parse: (buffer, start) => buffer.readDoubleLE(start, true) },
+  uChar: { size: 1, parse: (buffer, start) => buffer.readInt8(start, true) },
   str4: str(4),
   str8: str(8),
   str16: str(16),

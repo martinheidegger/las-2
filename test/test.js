@@ -21,33 +21,46 @@ function readOutFile (outFile) {
 }
 
 function processPointCloud (command, args, outFile) {
-  const child = spawn(command, args)
-  child.on('error', (e) => console.error(`-- error --\n${e.stack}`))
-  child.stdin.on('error', (e) => console.error(`-- error on stdin --\n${e.stack}`))
+  const inFile = path.join(__dirname, 'Serpent Mound Model LAS Data.las')
+  fs.open(inFile, 'r', (err, inFd) => {
+    if (err) {
+      throw err
+    }
+    fs.open(outFile, 'w', (err, outFd) => {
+      if (err) {
+        throw err
+      }
+      const inStream = fs.createReadStream(inFile, {
+        fd: inFd
+      })
+      const outStream = fs.createWriteStream(outFile, {
+        fd: outFd
+      })
+      const child = spawn(command, args, {
+        stdio: [inStream, outStream, 'pipe']
+      })
+      child.on('error', (e) => console.error(`-- error --\n${e.stack}`))
+      child.stderr.pipe(process.stdout)
 
-  fs.createReadStream(path.join(__dirname, 'Serpent Mound Model LAS Data.las'))
-    .pipe(child.stdin)
-
-  child.stdout.pipe(fs.createWriteStream(outFile))
-  child.stderr.pipe(process.stderr, { end: false })
-
-  performance.mark('start')
-  const report = () => {
-    performance.mark('stop')
-    stats.finish()
-    fs.writeFileSync(`${outFile}.stats.csv`, stats.toCSV())
-    performance.measure('duration', 'start', 'stop')
-    const {duration} = performance.getEntriesByName('duration')[0]
-    console.log(`${duration}ms`)
-  }
-  /*
-  Simple time!
-  const start = process.hrtime()
-  const report = () => {
-    console.log(require('pretty-hrtime')(process.hrtime(start)))
-  }
-  */
-  child.on('close', report)
+      performance.mark('start')
+      const report = () => {
+        performance.mark('stop')
+        stats.finish()
+        fs.writeFileSync(`${outFile}.stats.csv`, stats.toCSV())
+        performance.measure('duration', 'start', 'stop')
+        const {duration} = performance.getEntriesByName('duration')[0]
+        console.log(`${duration}ms`)
+      }
+      /*
+      Simple time!
+      const start = process.hrtime()
+      const report = () => {
+        console.log(require('pretty-hrtime')(process.hrtime(start)))
+      }
+      */
+      child.on('close', report)
+    })
+  })
 }
 
 // readOutFile(pureOut)

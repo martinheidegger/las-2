@@ -23,6 +23,38 @@ const noop = {
   size: Number.POSITIVE_INFINITY,
   parse: () => noop
 }
+const bitmap = (fields) => {
+  const map = fields.reduce((map, entry) => {
+    const {field} = entry
+    map.push((result, i, flag) => { result[field] = flag })
+    if (entry.size > 1) {
+      map.push((result, i, flag) => { result[field] = result[field] | (flag << 1) })
+    }
+    if (entry.size > 2) {
+      map.push((result, i, flag) => { result[field] = result[field] | (flag << 2) })
+    }
+    if (entry.size > 3) {
+      throw new Error(`Currently max supported size is 3!`)
+    }
+    return map
+  }, [])
+  if (map.length % 8 !== 0) {
+    throw new Error(`Bitmap only works on a multiple of 8`)
+  }
+  return {
+    size: map.length / 8 | 0,
+    parse: (buffer, start, result) => {
+      const char = buffer.readInt8(start, true)
+      if (result === undefined) {
+        result = {}
+      }
+      for (let i = 0; i < 8; i++) {
+        map[i](result, i, (char & i === 1))
+      }
+      return result
+    }
+  }
+}
 module.exports = {
   str,
   repeat,
@@ -37,38 +69,7 @@ module.exports = {
   str16: str(16),
   str32: str(32),
   uLong5: repeat(uLong, 5),
-  bitmap: (fields) => {
-    const map = fields.reduce((map, entry) => {
-      const {field} = entry
-      map.push((result, i, flag) => { result[field] = flag })
-      if (entry.size > 1) {
-        map.push((result, i, flag) => { result[field] = result[field] | (flag << 1) })
-      }
-      if (entry.size > 2) {
-        map.push((result, i, flag) => { result[field] = result[field] | (flag << 2) })
-      }
-      if (entry.size > 3) {
-        throw new Error(`Currently max supported size is 3!`)
-      }
-      return map
-    }, [])
-    if (map.length % 8 !== 0) {
-      throw new Error(`Bitmap only works on a multiple of 8`)
-    }
-    return {
-      size: map.length / 8 | 0,
-      parse: (buffer, start, result) => {
-        const char = buffer.readInt8(start)
-        if (result === undefined) {
-          result = {}
-        }
-        for (let i = 0; i < 8; i++) {
-          map[i](result, i, (char & i === 1))
-        }
-        return result
-      }
-    }
-  },
+  bitmap,
   postProcess: (type, processor) => {
     return {
       size: type.size,
@@ -77,51 +78,86 @@ module.exports = {
       }
     }
   },
-  iter: (type, total, op, next) => {
-    let count = 0
-    const nextCheck = () => {
-      count += 1
-      if (count < total) {
-        return type(op, nextCheck)
+  onDemand: (type, total, op, next) => {
+    const stepSize = type.size
+    const receiveParts = {
+      stepSize,
+      sizeMax: () => total,
+      parse: (buffer, start) => {
+        const received = (buffer.length - start) / stepSize | 0
+        total -= received
+        if (total < 0) {
+          throw new Error('wtf, we received more than requested!!!')
+        }
+        op({
+          total: received,
+          read: (index) => type.parse(buffer, start + index * stepSize)
+        })
+        if (total === 0) {
+          return next
+        }
+        return receiveParts
       }
-      return next
     }
-    return type(op, nextCheck)
+    return receiveParts
+  },
+  iter: (type, total, op, next) => {
+    const nextCheck = () => {
+      total -= 1
+      if (total === -1) {
+        return next
+      }
+      return nextType
+    }
+    const nextType = type(op, nextCheck)
+    return nextCheck()
   },
   table: (fields) => {
-    let firstNode
-    let lastNode
-    let result = {
+    const propMap = {}
+    let offset = 0
+    fields.forEach((node) => {
+      const offsetStore = offset
+      if (node.field) {
+        const type = node.type
+        propMap[node.field] = (buffer, start) => type.parse(buffer, start + offsetStore)
+        offset += type.size
+      } else if (node.bitmap) {
+        let cache
+        const type = bitmap(node.bitmap)
+        node.bitmap.forEach(field => {
+          propMap[field] = (buffer, start) => {
+            if (cache === undefined) {
+              cache = type.parse(buffer, start + offsetStore)
+            }
+            return cache[field]
+          }
+        })
+        offset += 1
+      } else {
+        throw new Error('Unsupported table type!')
+      }
+    })
+
+    const result = {
       size: fields.reduce((total, {type}) => {
+        if (type === undefined) {
+          return 1 // bitmap!
+        }
         return total + type.size
       }, 0),
       parse: (buffer, start) => {
-        let node = firstNode
-        const result = {}
-        while (node) {
-          const {type, field} = node
-          if (field === '$') {
-            type.parse(buffer, start, result)
-          } else {
-            result[field] = type.parse(buffer, start)
+        return {
+          get: (field) => propMap[field](buffer, start),
+          toJSON: () => {
+            const result = {}
+            Object.keys(propMap).forEach(field => {
+              result[field] = propMap[field](buffer, start)
+            })
+            return result
           }
-          start += type.size
-          node = node.next
         }
-        return result
       }
     }
-
-    fields.forEach((node) => {
-      result.totalSize += node.type.size
-      if (lastNode === undefined) {
-        firstNode = node
-      } else {
-        lastNode.next = node
-      }
-      lastNode = node
-    })
-
     return result
   },
   ignoreUntil: (targetOffset, next) => {

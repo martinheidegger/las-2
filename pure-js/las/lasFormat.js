@@ -10,22 +10,22 @@ module.exports = (handlers) => {
     parse: (buffer, offset) => {
       const header = lasHeader.parse(buffer, offset)
       handlers.onHeader(header)
-      const xScale = header['X scale factor']
-      const yScale = header['Y scale factor']
-      const zScale = header['Z scale factor']
-      const xOffset = header['X offset']
-      const yOffset = header['Y offset']
-      const zOffset = header['Z offset']
-      const pdFormat = getPDFormat(header['Point Data Format ID (0-99 for spec)'])
+      const xScale = header.get('X scale factor')
+      const yScale = header.get('Y scale factor')
+      const zScale = header.get('Z scale factor')
+      const xOffset = header.get('X offset')
+      const yOffset = header.get('Y offset')
+      const zOffset = header.get('Z offset')
+      const pdFormat = getPDFormat(header.get('Point Data Format ID (0-99 for spec)'))
       return varLenRecords(
-        header['Number of Variable Length Records'],
+        header.get('Number of Variable Length Records'),
         handlers.onVarLengthRecord,
-        ignoreUntil(header['Offset to point data'], pdRecords(pdFormat,
-          header['Number of point records'],
+        ignoreUntil(header.get('Offset to point data'), pdRecords(pdFormat,
+          header.get('Number of point records'),
           (pdRecord) => {
-            pdRecord.X = (pdRecord.X * xScale) + xOffset
-            pdRecord.Y = (pdRecord.Y * yScale) + yOffset
-            pdRecord.Z = (pdRecord.Z * zScale) + zOffset
+            pdRecord.X = () => (pdRecord.get('X') * xScale) + xOffset
+            pdRecord.Y = () => (pdRecord.get('Y') * yScale) + yOffset
+            pdRecord.Z = () => (pdRecord.get('Z') * zScale) + zOffset
             handlers.onPDRecord(pdRecord)
           },
           noop

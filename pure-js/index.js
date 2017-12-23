@@ -21,20 +21,25 @@ function releaseDrain () {
 const lasFormat = require('./las/lasFormat')({
   onHeader: (header) => {
     console.error('--- HEADER ---')
-    console.error(header)
+    console.error(header.toJSON())
   },
   onVarLengthRecord: (varLenRecord) => {
     // console.log('--- VAR LENGTH RECORD ---')
-    // console.log(varLenRecord.data.length, varLenRecord['Record Length After Header'])
-    // console.log(varLenRecord)
+    // console.log(varLenRecord.get('data').length, varLenRecord.get('Record Length After Header'))
+    // console.error(varLenRecord.toJSON())
   },
   onPDRecord: (pdRecord) => {
     // console.log('--- PD RECORD ---')
+    /*
+    const X = pdRecord.X()
+    const Y = pdRecord.Y()
+    const Z = pdRecord.Z()
+    console.error({X, Y, Z})
+    */
     const buf = bufPool.take()
-    // console.error('take')
-    buf.writeDoubleLE(pdRecord.X, 0, true)
-    buf.writeDoubleLE(pdRecord.Y, 8, true)
-    buf.writeDoubleLE(pdRecord.Z, 16, true)
+    buf.writeDoubleLE(pdRecord.X(), 0, true)
+    buf.writeDoubleLE(pdRecord.Y(), 8, true)
+    buf.writeDoubleLE(pdRecord.Z(), 16, true)
 
     if (waitForDrain) {
       const node = {buf, id: pressureId}

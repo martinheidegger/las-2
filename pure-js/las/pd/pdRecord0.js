@@ -1,4 +1,4 @@
-const {table, uShort, uChar, long, bitmap, postProcess} = require('./parser')
+const {table, uShort, uChar, long, postProcess} = require('../../util/parser')
 
 module.exports = (op, next) => {
   return postProcess(table([
@@ -7,13 +7,12 @@ module.exports = (op, next) => {
     {field: 'Z', type: long},
     {field: 'Intensity', type: uShort},
     {
-      field: '$',
-      type: bitmap([
+      bitmap: [
         {field: 'Return Number', size: 3},
         {field: 'Number of Returns', size: 3},
         {field: 'Scan Direction', size: 1},
         {field: 'Edge of Flight Line', size: 1}
-      ])
+      ]
     },
     {field: 'Classification', type: uChar},
     {field: 'Scan Angle Rank (-90 to +90) – Left side', type: uChar},

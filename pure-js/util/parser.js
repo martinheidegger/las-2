@@ -136,9 +136,7 @@ module.exports = {
         const json = {}
         fields.forEach(node => {
           if (node.bitmap) {
-            node.bitmap.forEach(field => {
-              json[field] = tableType[field](buffer)
-            })
+            node.bitmap.type.parse(buffer, 0, json)
             return
           }
           json[node.field] = tableType[node.field](buffer)
@@ -159,6 +157,9 @@ module.exports = {
         node.bitmap.forEach(part => {
           tableType[part.field] = (buffer) => type.parseField(part.field, buffer, offsetStore)
         })
+        // Store the type in the bitmap for performance reason
+        // ... slightly ugly solution but works
+        node.bitmap.parse = (buffer, result) => type.parse(buffer, offsetStore, result)
         offset += 1
       } else {
         throw new Error('Unsupported table type!')

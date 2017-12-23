@@ -23,18 +23,26 @@ const noop = {
   size: Number.POSITIVE_INFINITY,
   parse: () => noop
 }
-const bitmap = (fields) => {
-  const map = fields.reduce((map, entry) => {
+const bitmap = function (fields) {
+  const fieldMap = {}
+  const map = fields.reduce((map, entry, i) => {
     const {field} = entry
+    if (entry.size > 3) {
+      throw new Error(`Currently max supported size is 3!`)
+    }
+    if (entry.size > 2) {
+      fieldMap[field] = (char) => (char & i === 1) | (char && (i + 1) === 1) << 1 | (char && (i + 2) === 1) << 2
+    } else if (entry.size > 1) {
+      fieldMap[field] = (char) => (char & i === 1) | (char && (i + 1) === 1) << 1
+    } else {
+      fieldMap[field] = (char) => char & i === 1
+    }
     map.push((result, i, flag) => { result[field] = flag })
     if (entry.size > 1) {
       map.push((result, i, flag) => { result[field] = result[field] | (flag << 1) })
     }
     if (entry.size > 2) {
       map.push((result, i, flag) => { result[field] = result[field] | (flag << 2) })
-    }
-    if (entry.size > 3) {
-      throw new Error(`Currently max supported size is 3!`)
     }
     return map
   }, [])
@@ -43,6 +51,10 @@ const bitmap = (fields) => {
   }
   return {
     size: map.length / 8 | 0,
+    parseField: function (field, buffer, start) {
+      const char = buffer.readInt8(start, true)
+      return fieldMap[field](char)
+    },
     parse: (buffer, start, result) => {
       const char = buffer.readInt8(start, true)
       if (result === undefined) {
@@ -143,15 +155,9 @@ module.exports = {
         tableType[node.field] = (buffer) => type.parse(buffer, offsetStore)
         offset += type.size
       } else if (node.bitmap) {
-        let cache
         const type = bitmap(node.bitmap)
-        node.bitmap.forEach(field => {
-          tableType[field] = (buffer) => {
-            if (cache === undefined) {
-              cache = type.parse(buffer, offsetStore)
-            }
-            return cache[field]
-          }
+        node.bitmap.forEach(part => {
+          tableType[part.field] = (buffer) => type.parseField(part.field, buffer, offsetStore)
         })
         offset += 1
       } else {

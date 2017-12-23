@@ -19,27 +19,25 @@ function releaseDrain () {
   }
 }
 const lasFormat = require('./las/lasFormat')({
-  onHeader: (header) => {
+  onHeader: (buffer, type) => {
     console.error('--- HEADER ---')
-    console.error(header.toJSON())
+    console.error(type.toJSON(buffer))
   },
-  onVarLengthRecord: (varLenRecord) => {
+  onVarLengthRecord: (buffer, varLenRecord) => {
     // console.log('--- VAR LENGTH RECORD ---')
-    // console.log(varLenRecord.get('data').length, varLenRecord.get('Record Length After Header'))
-    // console.error(varLenRecord.toJSON())
+    // console.log(varLenRecord.Data(buffer).length, varLenRecord.recordLengthAfterHeader(buffer))
+    // console.error(varLenRecord.toJSON(buffer))
   },
-  onPDRecord: (pdRecord) => {
+  onPDRecord: (buffer, pdType) => {
     // console.log('--- PD RECORD ---')
-    /*
-    const X = pdRecord.X()
-    const Y = pdRecord.Y()
-    const Z = pdRecord.Z()
-    console.error({X, Y, Z})
-    */
+    const X = pdType.xProj(buffer)
+    const Y = pdType.yProj(buffer)
+    const Z = pdType.zProj(buffer)
+    // console.error({X, Y, Z})
     const buf = bufPool.take()
-    buf.writeDoubleLE(pdRecord.X(), 0, true)
-    buf.writeDoubleLE(pdRecord.Y(), 8, true)
-    buf.writeDoubleLE(pdRecord.Z(), 16, true)
+    buf.writeDoubleLE(X, 0, true)
+    buf.writeDoubleLE(Y, 8, true)
+    buf.writeDoubleLE(Z, 16, true)
 
     if (waitForDrain) {
       const node = {buf, id: pressureId}
@@ -71,4 +69,4 @@ process.stdin.on('error', (e) => console.error(e.stack))
 process.stdin.on('data', receiveBufferForFormat(lasFormat))
 process.stdin.resume()
 process.on('SIGINT', (e) => process.exit(1))
-process.on('uncaughtException', (e) => console.error(`-- uncaught --\n${e.stack}`))
+// process.on('uncaughtException', (e) => console.error(`-- uncaught --\n${e.stack}`))

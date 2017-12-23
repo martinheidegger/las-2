@@ -113,21 +113,42 @@ module.exports = {
     return nextCheck()
   },
   table: (fields) => {
-    const propMap = {}
+    const tableType = {
+      size: fields.reduce((total, {type}) => {
+        if (type === undefined) {
+          return 1 // bitmap!
+        }
+        return total + type.size
+      }, 0),
+      toJSON: function (buffer) {
+        const json = {}
+        fields.forEach(node => {
+          if (node.bitmap) {
+            node.bitmap.forEach(field => {
+              json[field] = tableType[field](buffer)
+            })
+            return
+          }
+          json[node.field] = tableType[node.field](buffer)
+        })
+        return json
+      }
+    }
+
     let offset = 0
     fields.forEach((node) => {
       const offsetStore = offset
       if (node.field) {
         const type = node.type
-        propMap[node.field] = (buffer, start) => type.parse(buffer, start + offsetStore)
+        tableType[node.field] = (buffer) => type.parse(buffer, offsetStore)
         offset += type.size
       } else if (node.bitmap) {
         let cache
         const type = bitmap(node.bitmap)
         node.bitmap.forEach(field => {
-          propMap[field] = (buffer, start) => {
+          tableType[field] = (buffer) => {
             if (cache === undefined) {
-              cache = type.parse(buffer, start + offsetStore)
+              cache = type.parse(buffer, offsetStore)
             }
             return cache[field]
           }
@@ -138,27 +159,7 @@ module.exports = {
       }
     })
 
-    const result = {
-      size: fields.reduce((total, {type}) => {
-        if (type === undefined) {
-          return 1 // bitmap!
-        }
-        return total + type.size
-      }, 0),
-      parse: (buffer, start) => {
-        return {
-          get: (field) => propMap[field](buffer, start),
-          toJSON: () => {
-            const result = {}
-            Object.keys(propMap).forEach(field => {
-              result[field] = propMap[field](buffer, start)
-            })
-            return result
-          }
-        }
-      }
-    }
-    return result
+    return tableType
   },
   ignoreUntil: (targetOffset, next) => {
     return {
@@ -196,7 +197,7 @@ module.exports = {
         } else {
           currentBuffer = buffer
         }
-        current = current.parse(currentBuffer, 0)
+        current = current.parse(currentBuffer)
         previousOffset += currentSize
         // It is eigther a function or a parser object, if its a function
         // turn it into a parser: problem is in './parser#iter'

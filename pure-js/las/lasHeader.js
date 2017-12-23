@@ -1,6 +1,6 @@
 const {str4, str8, str32, short, uChar, uLong, uShort, uLong5, double, table} = require('../util/parser')
 
-module.exports = table([
+const lasHeader = table([
   {field: 'File Signature (“LASF”)', type: str4},
   {field: 'File Source ID', type: uShort},
   {field: 'Global Encoding', type: uShort},
@@ -34,3 +34,31 @@ module.exports = table([
   {field: 'Max Z', type: double},
   {field: 'Min Z', type: double}
 ])
+lasHeader.pdFormat = lasHeader['Point Data Format ID (0-99 for spec)']
+lasHeader.pdFormatType = function (buffer) {
+  const formatID = this.pdFormat(buffer)
+  if (formatID === 0) {
+    return require('./pd/pdRecord0')
+  }
+  if (formatID === 1) {
+    return require('./pd/pdRecord1')
+  }
+  if (formatID === 2) {
+    return require('./pd/pdRecord2')
+  }
+  if (formatID === 3) {
+    return require('./pd/pdRecord3')
+  }
+  throw new Error(`Unsupported Point Data Format ${formatID}`)
+}
+lasHeader.xScaleFactor = lasHeader['X scale factor']
+lasHeader.yScaleFactor = lasHeader['Y scale factor']
+lasHeader.zScaleFactor = lasHeader['Z scale factor']
+lasHeader.xOffset = lasHeader['X offset']
+lasHeader.yOffset = lasHeader['Y offset']
+lasHeader.zOffset = lasHeader['Z offset']
+lasHeader.varLenRecords = lasHeader['Number of Variable Length Records']
+lasHeader.offsetToPointData = lasHeader['Offset to point data']
+lasHeader.pdRecords = lasHeader['Number of point records']
+
+module.exports = lasHeader

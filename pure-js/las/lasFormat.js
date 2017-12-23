@@ -1,36 +1,44 @@
 const lasHeader = require('./lasHeader')
-const varLenRecords = require('./varLenRecords')
-const pdRecords = require('./pdRecords')
-const getPDFormat = require('./pd/getPDFormat')
-const {noop, ignoreUntil} = require('../util/parser')
+const varLenRecord = require('./varLen/varLenRecord')
+const {noop, ignoreUntil, iter} = require('../util/parser')
 
 module.exports = (handlers) => {
   return {
     size: lasHeader.size,
-    parse: (buffer, offset) => {
-      const header = lasHeader.parse(buffer, offset)
-      handlers.onHeader(header)
-      const xScale = header.get('X scale factor')
-      const yScale = header.get('Y scale factor')
-      const zScale = header.get('Z scale factor')
-      const xOffset = header.get('X offset')
-      const yOffset = header.get('Y offset')
-      const zOffset = header.get('Z offset')
-      const pdFormat = getPDFormat(header.get('Point Data Format ID (0-99 for spec)'))
-      return varLenRecords(
-        header.get('Number of Variable Length Records'),
+    parse: (buffer) => {
+      handlers.onHeader(buffer, lasHeader)
+      const xScale = lasHeader.xScaleFactor(buffer)
+      const yScale = lasHeader.yScaleFactor(buffer)
+      const zScale = lasHeader.zScaleFactor(buffer)
+      const xOffset = lasHeader.xOffset(buffer)
+      const yOffset = lasHeader.yOffset(buffer)
+      const zOffset = lasHeader.zOffset(buffer)
+      const masterFormat = lasHeader.pdFormatType(buffer)
+      const pdFormatType = Object.create(masterFormat)
+      pdFormatType.xProj = (buffer) => masterFormat.X(buffer) * xScale + xOffset
+      pdFormatType.yProj = (buffer) => masterFormat.Y(buffer) * yScale + yOffset
+      pdFormatType.zProj = (buffer) => masterFormat.Z(buffer) * zScale + zOffset
+      return iter(
+        varLenRecord,
+        lasHeader.varLenRecords(buffer),
         handlers.onVarLengthRecord,
-        ignoreUntil(header.get('Offset to point data'), pdRecords(pdFormat,
-          header.get('Number of point records'),
-          (pdRecord) => {
-            pdRecord.X = () => (pdRecord.get('X') * xScale) + xOffset
-            pdRecord.Y = () => (pdRecord.get('Y') * yScale) + yOffset
-            pdRecord.Z = () => (pdRecord.get('Z') * zScale) + zOffset
-            handlers.onPDRecord(pdRecord)
-          },
-          noop
-        ))
-      )
+        ignoreUntil(lasHeader.offsetToPointData(buffer),
+          iter(
+            (op, next) => {
+              return {
+                size: pdFormatType.size,
+                parse: (buffer) => {
+                  op(buffer, pdFormatType)
+                  return next
+                }
+              }
+            },
+            lasHeader.pdRecords(buffer),
+            handlers.onPDRecord,
+            noop
+          )
+        )
+       )
     }
   }
 }

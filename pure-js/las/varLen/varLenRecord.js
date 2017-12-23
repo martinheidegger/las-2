@@ -1,13 +1,11 @@
 'use strict'
 const varLenRecordHeader = require('./varLenRecordHeader')
-const headerSize = varLenRecordHeader.size
 module.exports = (op, next) => {
   return {
-    size: headerSize,
+    size: varLenRecordHeader.size,
     parse: (headerBuffer) => {
-      const size = varLenRecordHeader.recordLengthAfterHeader(headerBuffer)
       return {
-        size,
+        size: varLenRecordHeader.recordLengthAfterHeader(headerBuffer),
         parse: (dataBuffer) => {
           op(Buffer.concat([headerBuffer, dataBuffer]), varLenRecordHeader)
           return next

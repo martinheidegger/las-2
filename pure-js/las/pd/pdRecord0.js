@@ -1,6 +1,6 @@
 const {table, uShort, uChar, long} = require('../../util/parser')
 
-module.exports = table([
+const pdRecord0 = table([
   {field: 'X', type: long},
   {field: 'Y', type: long},
   {field: 'Z', type: long},
@@ -18,4 +18,6 @@ module.exports = table([
   {field: 'User Data', type: uChar},
   {field: 'Point Source ID', type: uShort}
 ])
-module.exports.version = 0
+pdRecord0.version = 0
+
+module.exports = pdRecord0

@@ -1,3 +1,4 @@
+'use strict'
 module.exports = (size) => {
   const pool = {
     take: function () {

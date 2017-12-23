@@ -1,3 +1,4 @@
+'use strict'
 const lasHeader = require('./lasHeader')
 const varLenRecord = require('./varLen/varLenRecord')
 const {noop, ignoreUntil, iter} = require('../util/parser')

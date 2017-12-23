@@ -1,3 +1,4 @@
+'use strict'
 const {table, str16, str32, uShort} = require('../../util/parser')
 
 const header = table([

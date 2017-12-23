@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+'use strict'
 const out = process.stdout
 const {receiveBufferForFormat} = require('./util/parser')
 const bufPool = require('./util/bufferPool')(8 * 3)

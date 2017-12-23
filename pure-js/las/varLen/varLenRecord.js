@@ -1,3 +1,4 @@
+'use strict'
 const varLenRecordHeader = require('./varLenRecordHeader')
 const headerSize = varLenRecordHeader.size
 module.exports = (op, next) => {

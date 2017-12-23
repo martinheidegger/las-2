@@ -1,3 +1,4 @@
+'use strict'
 const {table, uShort, uChar, long, double} = require('../../util/parser')
 
 const pdRecord3 = table([

@@ -1,3 +1,4 @@
+'use strict'
 const {str4, str8, str32, short, uChar, uLong, uShort, uLong5, double, table} = require('../util/parser')
 
 const lasHeader = table([

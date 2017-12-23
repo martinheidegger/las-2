@@ -1,5 +1,5 @@
 module.exports = (size) => {
-  return {
+  const pool = {
     take: function () {
       if (this._dataArr !== undefined) {
         try {
@@ -15,6 +15,9 @@ module.exports = (size) => {
       }
       return Buffer.allocUnsafe(size)
     },
+    write: (stream, buf) => stream.write(buf, function () {
+      pool.putBack(buf)
+    }),
     putBack: function (buf) {
       if (this._dataArr !== undefined) {
         this._dataArr.push(buf)
@@ -33,4 +36,5 @@ module.exports = (size) => {
       this._data = buf
     }
   }
+  return pool
 }

@@ -6,18 +6,6 @@ let pressureId = 0
 let firstPressure
 let lastPressure
 let waitForDrain = false
-function releaseDrain () {
-  if (firstPressure) {
-    do {
-      if (!((buf2) => out.write(buf2, () => bufPool.putBack(buf2)))(firstPressure.buf)) {
-        waitForDrain = true
-        return
-      }
-      firstPressure = firstPressure.next
-    } while (firstPressure !== undefined)
-    lastPressure = undefined
-  }
-}
 const lasFormat = require('./las/lasFormat')({
   onHeader: (buffer, type) => {
     console.error('--- HEADER ---')
@@ -52,17 +40,21 @@ const lasFormat = require('./las/lasFormat')({
       return
     }
 
-    releaseDrain()
-
-    if (!out.write(buf, () => {
-      bufPool.putBack(buf)
-    })) {
+    if (!bufPool.write(out, buf)) {
       waitForDrain = true
-      out.on('drain', () => {
-        waitForDrain = false
-        releaseDrain()
-      })
     }
+  }
+})
+out.on('drain', () => {
+  if (waitForDrain) {
+    do {
+      if (!bufPool.write(out, firstPressure.buf)) {
+        return
+      }
+      firstPressure = firstPressure.next
+    } while (firstPressure !== undefined)
+    lastPressure = undefined
+    waitForDrain = false
   }
 })
 process.stdin.on('error', (e) => console.error(e.stack))

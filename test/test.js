@@ -55,7 +55,7 @@ function processPointCloud (command, args, outFile) {
 
 // Simple call
 processPointCloud(
-  path.join(__dirname, '..', 'pure-js', 'index.js')
+  path.join(__dirname, '..', 'pure-js', 'index.js'),
   [],
   pureOut
 )
